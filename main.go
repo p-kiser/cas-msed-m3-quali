@@ -10,10 +10,10 @@ func main() {
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/{domain}", ReadHandler)
-	// r.HandleFunc("/{domain:[a-z0-9-_{3-64}]\.i2p}", ReadHandler)
+	r.HandleFunc("/{domain}", ReadHandler).Methods("GET")
+	// r.HandleFunc("/{domain:[a-z0-9-_]{3,64}\\.i2p}", ReadHandler)
 
-    // r.HandleFunc("/{domain:[a-z0-9-_{3-64}]\.i2p}/{addr:[a-z0-9]{52}}", WriteHandler)
+	// r.HandleFunc("/{domain:[a-z0-9-_{3-64}]\.i2p}/{addr:[a-z0-9]{52}}", WriteHandler)
 	http.Handle("/", r)
 
 	// Start the web server on port 8080
@@ -28,6 +28,18 @@ func main() {
 
 func ReadHandler(resp http.ResponseWriter, req *http.Request) {
 	vars := mux.Vars(req)
-	resp.WriteHeader(http.StatusOK)
-	fmt.Fprintf(resp, "Domain = %v", vars["domain"])
+	domain _= vars["domain"]
+
+	if isValidDomain() {
+		fmt.Fprintf(resp, "Domain = %v", domain)
+		resp.WriteHeader(http.StatusOK)
+	} else {
+		http.Error(w, "Invalid domain format", http.StatusBadRequest)
+	}
+}
+
+func isValidDomain(domain string) bool {
+	pattern := "^[a-z0-9-_]{3,64}\\.i2p$"
+	regexpPattern := regexp.MustCompile(pattern)
+	return regexpPattern.MatchString(domain)
 }
