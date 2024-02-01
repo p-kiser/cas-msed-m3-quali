@@ -82,14 +82,6 @@ func PutHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-<<<<<<< HEAD
-
-	dataBytes := []byte(string(jsonData))
-
-	fmt.Println(string(jsonData))
-
-	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(dataBytes))
-=======
 	tokenData, err := getToken()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -98,7 +90,6 @@ func PutHandler(w http.ResponseWriter, r *http.Request) {
 	url := fmt.Sprintf("%s/tx", BaseUrl)
 	fmt.Printf("Sending request: PUT %v...", url)
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
->>>>>>> e45ae0282f031399a911ef56879e8e3ce8bb35f6
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
