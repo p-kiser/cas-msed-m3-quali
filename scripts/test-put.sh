@@ -1,0 +1,1 @@
+curl -v -X PUT http://172.19.73.22:17468/tx  -H 'diva-token-api:DmNxZ6GTVwALusqVBEtjDmAhAExpaQ1F' -H 'Content-Type: application/json' --data-binary '[{"command":"data","ns":"testdata.i2p","d":"auoqibfnyujhcht4v3nzahpqztwlyomesfywltuls5bqqi3nd3ka"}]'

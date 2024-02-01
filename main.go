@@ -84,9 +84,11 @@ func PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	json.MarshalIndent(jsonData, "", "  ")
+	dataBytes := []byte(string(jsonData))
 
-	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
+	fmt.Println(string(jsonData))
+
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(dataBytes))
 	if err != nil {
 		fmt.Println("Error sending request:", err)
 		return
