@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/gorilla/mux"
 )
@@ -36,17 +37,17 @@ func init() {
 
 func main() {
 	router := mux.NewRouter()
-	router.HandleFunc("/{domain}", GetHandler).Methods("GET")
-	router.HandleFunc("/{domain}/{addr}", PutHandler).Methods("PUT")
+	router.HandleFunc("/{domain}", ReadHandler).Methods("GET")
+	router.HandleFunc("/{domain}/{addr}", WriteHandler).Methods("PUT")
 	http.Handle("/", router)
-	fmt.Printf("Server is listening on http://localhost:%d...\n", Port)
+	fmt.Printf("Server is listening on http://localhost:%d\n", Port)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", Port), nil)
 	if err != nil {
 		fmt.Println("Error:", err)
 	}
 }
 
-func GetHandler(w http.ResponseWriter, r *http.Request) {
+func ReadHandler(w http.ResponseWriter, r *http.Request) {
 	// validate
 	vars := mux.Vars(r)
 	domain := vars["domain"]
@@ -55,8 +56,8 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// send
-	url := fmt.Sprintf("%s/state/%s", BaseUrl, domain)
-	fmt.Printf("Sending request: GET %v...", url)
+	url := fmt.Sprintf("%s/state/I2PDNS:%s", BaseUrl, domain)
+	fmt.Printf("> GET %v\n", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -66,7 +67,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	handle(resp, w)
 }
 
-func PutHandler(w http.ResponseWriter, r *http.Request) {
+func WriteHandler(w http.ResponseWriter, r *http.Request) {
 	// validate inputs
 	vars := mux.Vars(r)
 	domain := vars["domain"]
@@ -75,22 +76,21 @@ func PutHandler(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid format.", http.StatusBadRequest)
 		return
 	}
-
-	domain = 
-
 	// prepare request
 	jsonData, err := getPayload(domain, addr)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	fmt.Println(string(jsonData))
 	tokenData, err := getToken()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
 	url := fmt.Sprintf("%s/tx", BaseUrl)
-	fmt.Printf("Sending request: PUT %v...", url)
+	fmt.Printf("> PUT %v\n", url)
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -151,7 +151,7 @@ func isValid(pattern string, input string) bool {
 func getToken() (TokenData, error) {
 	var tokenData TokenData
 	url := fmt.Sprintf("%s/testnet/token", BaseUrl)
-	fmt.Printf("Sending request: GET %v...", url)
+	fmt.Printf("> GET %v\n", url)
 	tokenResp, err := http.Get(url)
 	if err != nil {
 		return tokenData, err
@@ -170,10 +170,10 @@ func getToken() (TokenData, error) {
 func getPayload(domain string, addr string) ([]byte, error) {
 	payload := Payload{
 		Command: "data",
-		NS:      fmt.Fprintf("I2PDNS:%v", strings.TrimSuffix(domain, ".i2p")),
+		NS:      fmt.Sprintf("I2PDNS:%v", strings.TrimSuffix(domain, ".i2p")),
 		D:       addr,
 	}
-	jsonData, err := json.Marshal(payload)
+	jsonData, err := json.MarshalIndent(payload, "", "  ")
 	if err != nil {
 		return nil, err
 	}
