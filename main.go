@@ -6,14 +6,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"regexp"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
 
-const (
-	Port    = 8080
-	BaseUrl = "http://127.19.73.21:17468" // TODO: check this out: http://127.19.73.21:17468/about
+var (
+	Port    int
+	BaseUrl string
 )
 
 type TokenData struct {
@@ -27,33 +29,37 @@ type Payload struct {
 	D       string `json:"d"`
 }
 
+func init() {
+	BaseUrl = getEnv("BASE_URL", "http://127.19.73.21:17468")
+	Port = getEnvAsInt("PORT", 8080)
+}
+
 func main() {
-
 	router := mux.NewRouter()
-
 	router.HandleFunc("/{domain}", GetHandler).Methods("GET")
 	router.HandleFunc("/{domain}/{addr}", PutHandler).Methods("PUT")
 	http.Handle("/", router)
-
 	fmt.Printf("Server is listening on http://localhost:%d...\n", Port)
 	err := http.ListenAndServe(fmt.Sprintf(":%d", Port), nil)
-
 	if err != nil {
 		fmt.Println("Error:", err)
 	}
 }
 
 func GetHandler(w http.ResponseWriter, r *http.Request) {
+	// validate
 	vars := mux.Vars(r)
 	domain := vars["domain"]
 	if !isValidDomain(domain) {
-		http.Error(w, "invalid domain", http.StatusBadRequest)
+		http.Error(w, "invalid format", http.StatusBadRequest)
 		return
 	}
+	// send
 	url := fmt.Sprintf("%s/state/%s", BaseUrl, domain)
+	fmt.Printf("Sending request: GET %v...", url)
 	resp, err := http.Get(url)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("GET request failed: %v", err.Error()), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer resp.Body.Close()
@@ -61,73 +67,52 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func PutHandler(w http.ResponseWriter, r *http.Request) {
+	// validate inputs
 	vars := mux.Vars(r)
 	domain := vars["domain"]
 	addr := vars["addr"]
-
 	if !isValidDomain(domain) || !isValidAddr(addr) {
-		http.Error(w, "Invalid domain or address format", http.StatusBadRequest)
+		http.Error(w, "Invalid format.", http.StatusBadRequest)
 		return
 	}
 
-	url := fmt.Sprintf("%s/tx", BaseUrl)
-
-	payload := Payload{
-		Command: "data",
-		NS:      domain,
-		D:       addr,
-	}
-
-	jsonData, err := json.Marshal(payload)
+	// prepare request
+	jsonData, err := getPayload(domain, addr)
 	if err != nil {
-		fmt.Println("Error marshaling JSON:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+<<<<<<< HEAD
 
 	dataBytes := []byte(string(jsonData))
 
 	fmt.Println(string(jsonData))
 
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(dataBytes))
+=======
+	tokenData, err := getToken()
 	if err != nil {
-		fmt.Println("Error sending request:", err)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	// TODO: get token /testnet/token
-	tokenUrl := fmt.Sprintf("%s/testnet/token", BaseUrl)
-	tokenResp, err := http.Get(tokenUrl)
+	url := fmt.Sprintf("%s/tx", BaseUrl)
+	fmt.Printf("Sending request: PUT %v...", url)
+	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
+>>>>>>> e45ae0282f031399a911ef56879e8e3ce8bb35f6
 	if err != nil {
-		http.Error(w, fmt.Sprintf("token request failed: %v", err.Error()), http.StatusInternalServerError)
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	body, err := ioutil.ReadAll(tokenResp.Body)
-	if err != nil {
-		fmt.Println("Error reading token response body:", err)
-		return
-	}
-
-	var tokenData TokenData
-
-	// Parse the JSON into the struct
-	err = json.Unmarshal([]byte(body), &tokenData)
-	if err != nil {
-		fmt.Println("Error parsing JSON:", err)
-		return
-	}
-
 	req.Header.Set(tokenData.Header, tokenData.Token)
 	req.Header.Set("Content-Type", "application/json")
-
-
 	client := &http.Client{}
+	// send request
 	resp, err := client.Do(req)
 	if err != nil {
 		http.Error(w, "Sending request failed", http.StatusBadRequest)
 	}
 	defer resp.Body.Close()
 	handle(resp, w)
-	return
 }
 
 func handle(response *http.Response, w http.ResponseWriter) {
@@ -146,10 +131,12 @@ func handle(response *http.Response, w http.ResponseWriter) {
 	}
 
 	if response.StatusCode != http.StatusOK {
-		http.Error(w, fmt.Sprintf("Server error: %v.", response.StatusCode), http.StatusInternalServerError)
-	} else {
-		w.WriteHeader(http.StatusOK)
-		fmt.Fprintf(w, string(body))
+		http.Error(w, fmt.Sprintf("Server response status: %v.", response.StatusCode), http.StatusInternalServerError)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	if len(body) > 0 {
+		fmt.Fprint(w, string(body))
 	}
 }
 
@@ -166,4 +153,56 @@ func isValidAddr(addr string) bool {
 func isValid(pattern string, input string) bool {
 	regexpPattern := regexp.MustCompile(pattern)
 	return regexpPattern.MatchString(input)
+}
+
+func getToken() (TokenData, error) {
+	var tokenData TokenData
+	url := fmt.Sprintf("%s/testnet/token", BaseUrl)
+	fmt.Printf("Sending request: GET %v...", url)
+	tokenResp, err := http.Get(url)
+	if err != nil {
+		return tokenData, err
+	}
+	body, err := ioutil.ReadAll(tokenResp.Body)
+	if err != nil {
+		return tokenData, err
+	}
+	err = json.Unmarshal([]byte(body), &tokenData)
+	if err != nil {
+		return tokenData, err
+	}
+	return tokenData, nil
+}
+
+func getPayload(domain string, addr string) ([]byte, error) {
+	payload := Payload{
+		Command: "data",
+		NS:      domain,
+		D:       addr,
+	}
+	jsonData, err := json.Marshal(payload)
+	if err != nil {
+		return nil, err
+	}
+	return jsonData, nil
+}
+
+func getEnv(key, defaultValue string) string {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		return defaultValue
+	}
+	return value
+}
+
+func getEnvAsInt(key string, defaultValue int) int {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		return defaultValue
+	}
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	return intValue
 }
