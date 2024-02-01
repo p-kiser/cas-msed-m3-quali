@@ -6,15 +6,16 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"regexp"
+	"strconv"
 
 	"github.com/gorilla/mux"
 )
 
-// TODO: find out if this is the right address
-const (
-	Port    = 8080
-	BaseUrl = "http://127.19.73.21:17468"
+var (
+	Port    int
+	BaseUrl string
 )
 
 type TokenData struct {
@@ -28,8 +29,12 @@ type Payload struct {
 	D       string `json:"d"`
 }
 
-func main() {
+func init() {
+	BaseUrl = getEnv("BASE_URL", "http://127.19.73.21:17468")
+	Port = getEnvAsInt("PORT", 8080)
+}
 
+func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/{domain}", GetHandler).Methods("GET")
 	router.HandleFunc("/{domain}/{addr}", PutHandler).Methods("PUT")
@@ -51,6 +56,7 @@ func GetHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	// send
 	url := fmt.Sprintf("%s/state/%s", BaseUrl, domain)
+	fmt.Printf("Sending request: GET %v...", url)
 	resp, err := http.Get(url)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -82,6 +88,7 @@ func PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	url := fmt.Sprintf("%s/tx", BaseUrl)
+	fmt.Printf("Sending request: PUT %v...", url)
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -141,8 +148,9 @@ func isValid(pattern string, input string) bool {
 
 func getToken() (TokenData, error) {
 	var tokenData TokenData
-	tokenUrl := fmt.Sprintf("%s/testnet/token", BaseUrl)
-	tokenResp, err := http.Get(tokenUrl)
+	url := fmt.Sprintf("%s/testnet/token", BaseUrl)
+	fmt.Printf("Sending request: GET %v...", url)
+	tokenResp, err := http.Get(url)
 	if err != nil {
 		return tokenData, err
 	}
@@ -168,4 +176,24 @@ func getPayload(domain string, addr string) ([]byte, error) {
 		return nil, err
 	}
 	return jsonData, nil
+}
+
+func getEnv(key, defaultValue string) string {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		return defaultValue
+	}
+	return value
+}
+
+func getEnvAsInt(key string, defaultValue int) int {
+	value, exists := os.LookupEnv(key)
+	if !exists {
+		return defaultValue
+	}
+	intValue, err := strconv.Atoi(value)
+	if err != nil {
+		return defaultValue
+	}
+	return intValue
 }
