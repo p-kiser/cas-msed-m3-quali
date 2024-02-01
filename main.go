@@ -13,8 +13,13 @@ import (
 
 const (
 	Port    = 8080
-	BaseUrl = "http://TODO" // TODO: check this out: http://127.19.73.21:17468/about
+	BaseUrl = "http://127.19.73.21:17468" // TODO: check this out: http://127.19.73.21:17468/about
 )
+
+type TokenData struct {
+	Header string `json:"header"`
+	Token  string `json:"token"`
+}
 
 type Payload struct {
 	Command string `json:"command"`
@@ -65,9 +70,6 @@ func PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Printf("Domain = %v, Address = %v\n", domain, addr)
-
-	// TODO: check if url is correct
 	url := fmt.Sprintf("%s/tx", BaseUrl)
 
 	payload := Payload{
@@ -82,16 +84,39 @@ func PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fmt.Println("***")
-	fmt.Println(jsonData)
-	fmt.Println("***")
+	json.MarshalIndent(jsonData, "", "  ")
 
 	req, err := http.NewRequest(http.MethodPut, url, bytes.NewBuffer(jsonData))
 	if err != nil {
 		fmt.Println("Error sending request:", err)
 		return
 	}
+
+	// TODO: get token /testnet/token
+	tokenUrl := fmt.Sprintf("%s/testnet/token", BaseUrl)
+	tokenResp, err := http.Get(tokenUrl)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("token request failed: %v", err.Error()), http.StatusInternalServerError)
+		return
+	}
+	body, err := ioutil.ReadAll(tokenResp.Body)
+	if err != nil {
+		fmt.Println("Error reading token response body:", err)
+		return
+	}
+
+	var tokenData TokenData
+
+	// Parse the JSON into the struct
+	err = json.Unmarshal([]byte(body), &tokenData)
+	if err != nil {
+		fmt.Println("Error parsing JSON:", err)
+		return
+	}
+
+	req.Header.Set(tokenData.Header, tokenData.Token)
 	req.Header.Set("Content-Type", "application/json")
+
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
@@ -111,15 +136,15 @@ func handle(response *http.Response, w http.ResponseWriter) {
 		return
 	}
 
-	// Print the API response
 	fmt.Printf("API Response (%d):\n", response.StatusCode)
-	fmt.Println("---")
-	fmt.Println(string(body))
-	fmt.Println("---")
+	if len(body) > 0 {
+		fmt.Println("---")
+		fmt.Println(string(body))
+		fmt.Println("---")
+	}
 
 	if response.StatusCode != http.StatusOK {
-		fmt.Printf("API request failed with status code: %d\n", response.StatusCode)
-		http.Error(w, string(body), http.StatusInternalServerError)
+		http.Error(w, fmt.Sprintf("Server error: %v.", response.StatusCode), http.StatusInternalServerError)
 	} else {
 		w.WriteHeader(http.StatusOK)
 		fmt.Fprintf(w, string(body))

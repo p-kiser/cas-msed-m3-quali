@@ -1,3 +1,3 @@
 #!/bin/sh
 
-curl http://localhost:8080/diva.i2p
+curl -i http://localhost:8080/diva.i2p
