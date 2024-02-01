@@ -15,7 +15,7 @@ Detailspezifikation: https://gist.github.com/diva-exchange/aa6b1adbfefe909cd3ea0
     GET /[a-z0-9-_]{3-64}\.i2p$
     PUT /[a-z0-9-_]{3-64}\.i2p$/[a-z0-9]{52}$
 
-## Beispiel
+## Beispiele
 
     GET /diva.i2p
     PUT /diva.i2p/auoqibfnyujhcht4v3nzahpqztwlyomesfywltuls5bqqi3nd3ka
