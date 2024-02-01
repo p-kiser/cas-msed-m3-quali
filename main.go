@@ -76,6 +76,8 @@ func PutHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	domain = 
+
 	// prepare request
 	jsonData, err := getPayload(domain, addr)
 	if err != nil {
@@ -168,7 +170,7 @@ func getToken() (TokenData, error) {
 func getPayload(domain string, addr string) ([]byte, error) {
 	payload := Payload{
 		Command: "data",
-		NS:      domain,
+		NS:      fmt.Fprintf("I2PDNS:%v", strings.TrimSuffix(domain, ".i2p")),
 		D:       addr,
 	}
 	jsonData, err := json.Marshal(payload)
